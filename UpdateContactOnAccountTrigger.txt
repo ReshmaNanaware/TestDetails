@@ -1,0 +1,71 @@
+Create a field on Account named "Number of Contacts". Populate this field with the number of contacts related to an account. 
+
+trigger RollupSummaryOnContact on Contact (after insert,after update,after delete,after undelete) {
+    
+    set<Id> setAccIds = new set<Id>();  //to store parent ids on contact
+    
+    if(trigger.isAfter && (trigger.isInsert || trigger.isUndelete)){
+        
+        if(!trigger.new.isEmpty())
+        {
+            for(Contact con : trigger.new)
+            {
+                if(con.AccountId != NULL)
+                {
+                    setAccIds.add(con.AccountId);
+                }
+            }
+        }
+    }
+    
+    if(trigger.isAfter && trigger.isUpdate)
+    {
+        if(!trigger.new.isEmpty()){
+            for(Contact con : trigger.new)
+            {
+                if(con.AccountId != trigger.oldMap.get(con.Id).AccountId)
+                {
+                    if(trigger.oldMap.get(con.Id).AccountId != NULL)
+                    {
+                        setAccIds.add(trigger.oldMap.get(con.Id).AccountId);
+                    }
+                    if(con.AccountId != NULL)
+                    {
+                        setAccIds.add(con.AccountId);
+                    }
+                }
+            }
+        }
+    }
+   
+    if(trigger.isAfter && trigger.isDelete)
+    {
+        if(!trigger.old.isEmpty())
+        {
+            for(contact con : trigger.old)
+            { 
+                if(con.AccountId != NULL)
+                {
+                    setAccIds.add(con.AccountId);
+                }
+            }
+        }
+    }
+    if(!setAccIds.isEmpty())
+    {
+        List<Account> accList = [SELECT Id,Number_of_Contacts__c,(SELECT Id FROM Contacts) FROM Account WHERE Id IN : setAccIds];
+        List<Account> accToBeUpdate = new List<Account>();
+        
+        if(!accList.isEmpty()){
+            for(Account acc : accList)
+            {
+                acc.Number_of_Contacts__c = acc.Contacts.Size();
+                accToBeUpdate.add(acc);
+            }
+        }
+        if(!accToBeUpdate.isEmpty())
+        {
+            UPDATE accToBeUpdate;
+        }
+    }  
+}
